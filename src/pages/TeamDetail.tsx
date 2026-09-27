@@ -5,6 +5,7 @@ import Topbar from '../components/Topbar'
 import Footer from '../components/Footer'
 import { getTeamDetail } from '../api/team'
 import type { TeamDetail as TeamDetailType } from '../types/team'
+import Teammates from '../components/Teammates'
 
 const TABS = [
   { key: 'info', label: '팀 정보' },
@@ -154,6 +155,8 @@ export default function TeamDetail() {
           <div className="mt-6">
             {activeTab === 'info' ? (
               <TeamInfoTab team={team} />
+            ) : activeTab === 'roles' ? (
+              <Teammates teamId={team.id} isLeader={team.leader} />
             ) : (
               <ComingSoon label={TABS.find((t) => t.key === activeTab)!.label} />
             )}
