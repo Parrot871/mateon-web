@@ -62,3 +62,28 @@ export type TeamRequestPayload = {
   recruitmentStartDate: string;
   recruitmentEndDate: string;
 };
+
+export type TeamOfferResponseDTO = {
+  offerId: number;
+  teamId: number;
+  teamTitle: string;
+  promotionText: string;
+  role: string[];
+  requiredSkills: string[];
+  capacity: number;
+  eventId: number | null;
+  leaderId: number;
+  leaderName: string | null;
+  targetUserId: number;
+  targetUserName: string;
+  targetUserSchool: string;
+  targetUserMajor: string;
+  message: string | null;
+  aiScore: number | null;
+  aiLabel: string | null;
+  status: OfferStatus;
+  createdAt: string;
+  respondedAt: string | null;
+};
+
+export type OfferStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELED';

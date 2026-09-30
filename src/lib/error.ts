@@ -78,3 +78,31 @@ export class RecommendationNotFoundError extends Error {
     Object.setPrototypeOf(this, RecommendationNotFoundError.prototype);
   }
 }
+
+export class OfferAlreadyRespondedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'OfferAlreadyRespondedError';
+  }
+}
+
+export class TeamRecruitmentClosedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TeamRecruitmentClosedError';
+  }
+}
+
+export class InvalidInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidInputError';
+  }
+}
+
+export class DuplicateResourceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DuplicateResourceError';
+  }
+}
