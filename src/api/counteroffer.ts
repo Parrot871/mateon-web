@@ -12,6 +12,35 @@ type CreateTeamOfferParams = {
   message?: string;
 };
 
+// 1. 이 팀이 보낸 제안 목록(팀장용)
+export async function getTeamOffers(teamId: number): Promise<TeamOfferResponseDTO[]> {
+  const accessToken = await getAccessToken();
+
+  if (!accessToken) {
+    throw new Error('로그인이 필요합니다.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}/offers`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  const text = await response.text();
+  const result: ApiResponse<TeamOfferResponseDTO[]> | null = text ? JSON.parse(text) : null;
+
+  if (!response.ok || !result?.success) {
+    const message = result?.message || `보낸 제안 목록 조회 실패: ${response.status}`;
+
+    if (response.status === 403 && message.includes('FORBIDDEN_ACCESS')) {
+      throw new ForbiddenAccessError(message);
+    }
+
+    throw new Error(message);
+  }
+
+  return result.data;
+}
+
+// 2. 보낸 제안 회수 (팀장용) 
 export async function cancelTeamOffer(offerId: number): Promise<void> {
   const accessToken = await getAccessToken();
 
@@ -44,6 +73,7 @@ export async function cancelTeamOffer(offerId: number): Promise<void> {
   }
 }
 
+// 3. 유저에게 제안 발송(팀장용)
 export async function createTeamOffer(
   params: CreateTeamOfferParams
 ): Promise<TeamOfferResponseDTO> {

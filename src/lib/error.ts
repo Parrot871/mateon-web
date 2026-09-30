@@ -106,3 +106,20 @@ export class DuplicateResourceError extends Error {
     this.name = 'DuplicateResourceError';
   }
 }
+
+export class OfferForbiddenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'OfferForbiddenError';
+  }
+}
+
+export class ProposalNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ProposalNotFoundError';
+  }
+}
+
+
+

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getRecommendedUsers, getUserRecommendationReason } from '../api/recommend'
 import { draftProposalForUser } from '../api/proposal'
-import { createTeamOffer } from '../api/counteroffer' 
-import { SchoolNotVerifiedError } from '../api/team' 
+import { createTeamOffer, getTeamOffers, cancelTeamOffer } from '../api/counteroffer'
+import { SchoolNotVerifiedError } from '../api/team'
 import {
   MatchingIntentRequiredError,
   TeamEmbeddingNotReadyError,
@@ -12,8 +12,10 @@ import {
   TeamRecruitmentClosedError,
   InvalidInputError,
   DuplicateResourceError,
+  OfferAlreadyRespondedError,
 } from '../lib/error'
 import type { UserRecommendation } from '../types/recommend'
+import type { TeamOfferResponseDTO, OfferStatus } from '../types/team'
 
 const RECOMMEND_LIMIT = 3
 const MAX_VISIBLE_SKILLS = 6
@@ -34,6 +36,13 @@ const EXPERIENCE_LABEL: Record<string, string> = {
   advanced: '숙련',
 }
 
+const OFFER_STATUS: Record<OfferStatus, { label: string; className: string }> = {
+  PENDING: { label: '대기 중', className: 'bg-amber-50 text-amber-700 border-amber-100' },
+  ACCEPTED: { label: '수락됨', className: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+  REJECTED: { label: '거절됨', className: 'bg-slate-100 text-slate-500 border-slate-200' },
+  CANCELED: { label: '취소됨', className: 'bg-slate-100 text-slate-400 border-slate-200' },
+}
+
 function toErrorMessage(e: unknown): string {
   if (e instanceof TeamEmbeddingNotReadyError) {
     return '팀 정보 분석이 아직 끝나지 않았어요. 잠시 후 다시 시도해 주세요.'
@@ -42,7 +51,7 @@ function toErrorMessage(e: unknown): string {
     return '매칭 의도 추출이 완료되어야 추천을 받을 수 있어요.'
   }
   if (e instanceof ForbiddenAccessError) {
-    return '팀장만 팀원 추천을 받을 수 있어요.'
+    return '팀장만 이용할 수 있어요.'
   }
   if (e instanceof ResourceNotFoundError) {
     return '팀을 찾을 수 없어요.'
@@ -61,6 +70,9 @@ function toErrorMessage(e: unknown): string {
   }
   if (e instanceof DuplicateResourceError) {
     return '이미 제안을 보낸 유저예요.'
+  }
+  if (e instanceof OfferAlreadyRespondedError) {
+    return '이미 응답이 완료된 제안이에요.'
   }
   return e instanceof Error ? e.message : '알 수 없는 오류가 발생했어요.'
 }
@@ -232,7 +244,7 @@ export default function Teammates({ teamId, isLeader }: Props) {
                 user={user}
                 reason={reasons[user.userId]}
                 onRetry={() => fetchReason(user.userId, requestSeq.current)}
-                onPropose={(selectedUser) => setSelectedUser(selectedUser)}
+                onPropose={(u) => setSelectedUser(u)}
               />
             ))}
           </ul>
@@ -248,6 +260,183 @@ export default function Teammates({ teamId, isLeader }: Props) {
           onSent={handleSent}
         />
       )}
+    </section>
+  )
+}
+
+export function OfferManagement({ teamId, isLeader }: Props) {
+  const [offers, setOffers] = useState<TeamOfferResponseDTO[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [cancelingId, setCancelingId] = useState<number | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const requestSeq = useRef(0)
+
+  const load = useCallback(async () => {
+    const seq = ++requestSeq.current
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await getTeamOffers(teamId)
+      if (seq !== requestSeq.current) return
+      setOffers(data)
+    } catch (e) {
+      if (seq !== requestSeq.current) return
+      setOffers([])
+      setError(toErrorMessage(e))
+    } finally {
+      if (seq === requestSeq.current) setLoading(false)
+    }
+  }, [teamId])
+
+  useEffect(() => {
+    if (!isLeader) return
+    load()
+    return () => {
+      requestSeq.current++
+    }
+  }, [isLeader, load])
+
+  const handleCancel = useCallback(
+    async (offerId: number) => {
+      if (cancelingId !== null) return
+      if (!window.confirm('이 제안을 취소할까요?')) return
+      setCancelingId(offerId)
+      setActionError(null)
+      try {
+        await cancelTeamOffer(offerId)
+        setOffers((prev) =>
+          prev.map((o) => (o.offerId === offerId ? { ...o, status: 'CANCELED' as const } : o)),
+        )
+      } catch (e) {
+        setActionError(toErrorMessage(e))
+        // 이미 응답된 경우 등 서버 상태와 어긋났을 수 있으니 목록 갱신
+        if (e instanceof OfferAlreadyRespondedError) void load()
+      } finally {
+        setCancelingId(null)
+      }
+    },
+    [cancelingId, load],
+  )
+
+  if (!isLeader) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-16 text-center">
+        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+          🔒
+        </div>
+        <p className="text-sm font-semibold text-slate-700">팀장만 이용할 수 있어요</p>
+        <p className="mt-1 text-sm text-slate-500">제안 관리 기능은 팀장 권한이 필요합니다.</p>
+      </div>
+    )
+  }
+
+  return (
+    <section className="w-full">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-slate-900">제안 관리</h2>
+          <p className="mt-1.5 text-sm text-slate-500">
+            우리 팀이 유저에게 보낸 합류 제안의 진행 상태를 확인하고 관리해요.
+          </p>
+        </div>
+        <button
+          onClick={load}
+          disabled={loading}
+          className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+        >
+          {loading ? '불러오는 중...' : '새로고침'}
+        </button>
+      </div>
+
+      {actionError && <p className="mt-4 text-sm text-red-500">{actionError}</p>}
+
+      <div className="mt-6">
+        {loading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-24 w-full animate-pulse rounded-2xl bg-slate-100" />
+            ))}
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center rounded-2xl border border-slate-200 bg-white py-16 text-center shadow-sm">
+            <p className="text-sm font-medium text-slate-600">{error}</p>
+            <button
+              onClick={load}
+              className="mt-4 rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
+            >
+              다시 시도하기
+            </button>
+          </div>
+        ) : offers.length === 0 ? (
+          <div className="flex flex-col items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-16 text-center">
+            <p className="text-sm text-slate-500">아직 보낸 제안이 없어요.</p>
+          </div>
+        ) : (
+          <ul className="space-y-3">
+            {offers.map((offer) => {
+              const status = OFFER_STATUS[offer.status]
+              const isPending = offer.status === 'PENDING'
+              const affiliation = [offer.targetUserSchool, offer.targetUserMajor]
+                .filter(Boolean)
+                .join(' · ')
+              const score = formatScore(offer.aiScore)
+
+              return (
+                <li
+                  key={offer.offerId}
+                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base font-bold text-slate-900">
+                          {offer.targetUserName}
+                        </h3>
+                        <span
+                          className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${status.className}`}
+                        >
+                          {status.label}
+                        </span>
+                        {score && (
+                          <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                            {offer.aiLabel ? `${offer.aiLabel} · ${score}` : `${score} 매칭`}
+                          </span>
+                        )}
+                      </div>
+                      {affiliation && (
+                        <p className="mt-0.5 text-sm text-slate-500">{affiliation}</p>
+                      )}
+                      <p className="mt-0.5 text-xs text-slate-400">
+                        {new Date(offer.createdAt).toLocaleDateString('ko-KR')} 발송
+                        {offer.respondedAt &&
+                          ` · ${new Date(offer.respondedAt).toLocaleDateString('ko-KR')} 응답`}
+                      </p>
+                    </div>
+
+                    {isPending && (
+                      <button
+                        type="button"
+                        onClick={() => handleCancel(offer.offerId)}
+                        disabled={cancelingId !== null}
+                        className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        {cancelingId === offer.offerId ? '취소 중...' : '제안 취소'}
+                      </button>
+                    )}
+                  </div>
+
+                  {offer.message && (
+                    <p className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-sm leading-relaxed text-slate-700">
+                      {offer.message}
+                    </p>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
     </section>
   )
 }
