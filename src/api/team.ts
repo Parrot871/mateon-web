@@ -1,8 +1,81 @@
 import type { ApiResponse } from "./auth";
 import { getAccessToken } from "./tokenStorage";
 import { TeamDetail, TeamPost, TeamRequestPayload } from "../types/team";
+import { 
+  MatchingIntentRequiredError, 
+  AiServerError, 
+  OfferAlreadyRespondedError, 
+  OfferForbiddenError,
+  ProposalNotFoundError,
+  TeamRecruitmentClosedError,
+ } from "../lib/error";
+import { Application } from "../types/team";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+
+async function authenticatedFetch<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<ApiResponse<T>> {
+  const accessToken = await getAccessToken();
+  if (!accessToken) {
+    throw new Error('로그인이 필요합니다.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+  const text = await response.text();
+  let result: ApiResponse<T> | null = null;
+
+  if (text) {
+    try {
+      result = JSON.parse(text);
+    } catch {
+      // JSON 파싱 실패 시 (502 HTML 에러 등)
+      throw new Error(`서버 응답 오류가 발생했습니다. (${response.status})`);
+    }
+  }
+
+  if (!response.ok || !result?.success) {
+    const message = result?.message || `요청 실패: ${response.status}`;
+
+    // 커스텀 에러 분류
+    if (response.status === 400 && (message.includes('MATCHING_INTENT_REQUIRED') || message.includes('매칭 의도'))) {
+      throw new MatchingIntentRequiredError(message);
+    }
+    if (
+      response.status === 404 &&
+      (message.includes('RECOMMENDATION_NOT_FOUND') || message.includes('RESOURCE_NOT_FOUND'))
+    ) {
+      throw new ProposalNotFoundError(message);
+    }
+    if (response.status === 502 || response.status === 503 || message.includes('AI_SERVER')) {
+      throw new AiServerError(message);
+    }
+    // 역제안 관련 에러 분류
+    if (response.status === 400 && message.includes('OFFER_ALREADY_RESPONDED')) {
+      throw new OfferAlreadyRespondedError(message);
+    }
+    if (response.status === 400 && message.includes('SCHOOL_NOT_VERIFIED')) {
+      throw new SchoolNotVerifiedError(message);
+    }
+    if (response.status === 400 && message.includes('TEAM_RECRUITMENT_CLOSED')) {
+      throw new TeamRecruitmentClosedError(message);
+    }
+    if (response.status === 403 && message.includes('FORBIDDEN_ACCESS')) {
+      throw new OfferForbiddenError(message);
+    }
+    throw new Error(message);
+  }
+  return result;
+}
 
 export class SchoolNotVerifiedError extends Error {
   constructor(message: string) {
@@ -176,3 +249,23 @@ export async function deleteTeam(teamId: number): Promise<void> {
     throw new Error(message);
   }
 }
+
+// 6. 내 팀에 온 지원서 목록 (팀장용)
+export async function getTeamApplications(teamId: number) {
+  const result = await authenticatedFetch<Application[]>(
+    `/api/teams/${teamId}/applications`
+  );
+  return result.data;
+}
+
+// 7. 지원서 승인/거절 (팀장용)
+export async function respondToApplication(applicationId: number, isApproved: boolean) {
+  const result = await authenticatedFetch<null>(
+    `/api/teams/applications/${applicationId}?isApproved=${isApproved}`,
+    {
+      method: 'PATCH',
+    }
+  );
+  return result.message;
+}
+

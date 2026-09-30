@@ -87,3 +87,44 @@ export type TeamOfferResponseDTO = {
 };
 
 export type OfferStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELED';
+
+export type Application = {
+  applicationId: number;
+  teamId: number;
+  teamTitle: string;
+  applicant: UserProfile;
+  introduction: string;
+  message: string;
+  contactNumber: string;
+  portfolioUrl: string;
+  isMine: boolean;
+  status: ApplicationStatus;
+  createdAt: string;
+};
+
+export type UserProfile = {
+  id: number;
+  email: string;
+  schoolEmail: string | null;
+  schoolVerified: boolean;
+  name: string;
+  campus: string | null;
+  college: string | null;
+  major: string | null;
+  grade: string | null;
+  interestJobPrimary: string | null;
+  interestJobSecondary: string | null;
+  interestJobTertiary: string | null;
+  tagline: string | null;
+  portfolio: string | null;
+  profileImageUrl: string | null;
+  collaborationTemperature: number | null;
+  collaborationReviewCount: number;
+  participatedActivities: ParticipatedActivity[];
+};
+
+export type ParticipatedActivity = {
+  id: number;
+  title: string;
+  category: string;
+};
