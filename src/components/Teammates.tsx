@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getRecommendedUsers, getUserRecommendationReason } from '../api/recommend'
 import { draftProposalForUser } from '../api/proposal'
+import { createTeamOffer } from '../api/counteroffer' 
+import { SchoolNotVerifiedError } from '../api/team' 
 import {
   MatchingIntentRequiredError,
   TeamEmbeddingNotReadyError,
   ForbiddenAccessError,
   ResourceNotFoundError,
   RecommendationNotFoundError,
+  TeamRecruitmentClosedError,
+  InvalidInputError,
+  DuplicateResourceError,
 } from '../lib/error'
 import type { UserRecommendation } from '../types/recommend'
 
@@ -44,6 +49,18 @@ function toErrorMessage(e: unknown): string {
   }
   if (e instanceof RecommendationNotFoundError) {
     return '추천 이력을 찾을 수 없어요. 추천을 새로고침해 주세요.'
+  }
+  if (e instanceof SchoolNotVerifiedError) {
+    return '학교 인증이 완료되지 않았어요.'
+  }
+  if (e instanceof TeamRecruitmentClosedError) {
+    return '이미 모집이 마감된 팀이에요.'
+  }
+  if (e instanceof InvalidInputError) {
+    return '입력 내용을 다시 확인해 주세요.'
+  }
+  if (e instanceof DuplicateResourceError) {
+    return '이미 제안을 보낸 유저예요.'
   }
   return e instanceof Error ? e.message : '알 수 없는 오류가 발생했어요.'
 }
@@ -88,6 +105,7 @@ export default function Teammates({ teamId, isLeader }: Props) {
   const [reasons, setReasons] = useState<Record<number, ReasonState>>({})
   const [selectedUser, setSelectedUser] = useState<UserRecommendation | null>(null)
   const requestSeq = useRef(0)
+  const sentUserIds = useRef<Set<number>>(new Set())
 
   const fetchReason = useCallback(
     async (userId: number, seq: number) => {
@@ -115,8 +133,9 @@ export default function Teammates({ teamId, isLeader }: Props) {
     try {
       const data = await getRecommendedUsers({ teamId, limit: RECOMMEND_LIMIT })
       if (seq !== requestSeq.current) return
-      setUsers(data)
-      void runWithConcurrency(data, REASON_CONCURRENCY, (u) => fetchReason(u.userId, seq))
+      const filtered = data.filter((u) => !sentUserIds.current.has(u.userId))
+      setUsers(filtered)
+      void runWithConcurrency(filtered, REASON_CONCURRENCY, (u) => fetchReason(u.userId, seq))
     } catch (e) {
       if (seq !== requestSeq.current) return
       setUsers([])
@@ -125,6 +144,14 @@ export default function Teammates({ teamId, isLeader }: Props) {
       if (seq === requestSeq.current) setLoading(false)
     }
   }, [teamId, fetchReason])
+
+  const handleSent = useCallback(
+    (userId: number) => {
+      sentUserIds.current.add(userId)
+      void load()
+    },
+    [load],
+  )
 
   useEffect(() => {
     if (!isLeader) return
@@ -214,7 +241,12 @@ export default function Teammates({ teamId, isLeader }: Props) {
 
       {/* 제안하기 모달 */}
       {selectedUser && (
-        <ProposalModal teamId={teamId} user={selectedUser} onClose={() => setSelectedUser(null)} />
+        <ProposalModal
+          teamId={teamId}
+          user={selectedUser}
+          onClose={() => setSelectedUser(null)}
+          onSent={handleSent}
+        />
       )}
     </section>
   )
@@ -370,20 +402,25 @@ function ProposalModal({
   teamId,
   user,
   onClose,
+  onSent,
 }: {
   teamId: number
   user: UserRecommendation
   onClose: () => void
+  onSent: (userId: number) => void
 }) {
   const [message, setMessage] = useState('')
   const [draftLoading, setDraftLoading] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
   const requestSeq = useRef(0)
 
   const generateDraft = useCallback(async () => {
     const seq = ++requestSeq.current
     setDraftLoading(true)
     setDraftError(null)
+    setSendError(null)
     try {
       const draft = await draftProposalForUser({ teamId, userId: user.userId })
       if (seq !== requestSeq.current) return
@@ -403,6 +440,25 @@ function ProposalModal({
     }
   }, [generateDraft])
 
+  const handleSend = useCallback(async () => {
+    if (sending) return
+    setSending(true)
+    setSendError(null)
+    try {
+      await createTeamOffer({
+        teamId,
+        userId: user.userId,
+        message: message.trim() || undefined,
+      })
+      onSent(user.userId)
+      onClose()
+    } catch (e) {
+      setSendError(toErrorMessage(e))
+    } finally {
+      setSending(false)
+    }
+  }, [sending, teamId, user.userId, message, onSent, onClose])
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
@@ -421,7 +477,8 @@ function ProposalModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-xl text-slate-400 hover:text-slate-600"
+            disabled={sending}
+            className="text-xl text-slate-400 hover:text-slate-600 disabled:opacity-50"
           >
             ×
           </button>
@@ -460,17 +517,21 @@ function ProposalModal({
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
+            disabled={sending}
             rows={9}
-            className="mt-4 w-full resize-none rounded-xl border border-slate-200 p-4 text-sm leading-6 text-slate-800 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            className="mt-4 w-full resize-none rounded-xl border border-slate-200 p-4 text-sm leading-6 text-slate-800 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50"
           />
         )}
+
+        {/* 전송 에러 */}
+        {sendError && <p className="mt-3 text-sm text-red-500">{sendError}</p>}
 
         {/* 버튼 */}
         <div className="mt-4 flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={generateDraft}
-            disabled={draftLoading}
+            disabled={draftLoading || sending}
             className="text-sm font-semibold text-slate-500 hover:text-slate-700 disabled:opacity-50"
           >
             다시 생성
@@ -480,25 +541,19 @@ function ProposalModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-500 hover:bg-slate-50"
+              disabled={sending}
+              className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-500 hover:bg-slate-50 disabled:opacity-50"
             >
               취소
             </button>
 
             <button
               type="button"
-              disabled={draftLoading || !!draftError || !message}
-              onClick={() => {
-                console.log('제안 보내기:', {
-                  userId: user.userId,
-                  message,
-                })
-
-                onClose()
-              }}
+              disabled={draftLoading || sending || !!draftError || !message}
+              onClick={handleSend}
               className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              제안 보내기
+              {sending ? '보내는 중...' : '제안 보내기'}
             </button>
           </div>
         </div>
