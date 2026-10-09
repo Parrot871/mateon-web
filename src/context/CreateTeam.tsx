@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react'
 
 type CreateTeamState = {
   eventId: number | null
@@ -47,9 +47,9 @@ export function CreateTeamProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [state])
 
-  const setField: CreateTeamContextType['setField'] = (key, value) => {
+  const setField: CreateTeamContextType['setField'] = useCallback((key, value) => {
     setState((prev) => ({ ...prev, [key]: value }))
-  }
+  }, [])
 
   const setCapacity = (value: number) => {
     setState((prev) => ({ ...prev, capacity: Math.max(1, value) }))

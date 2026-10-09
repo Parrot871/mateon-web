@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronRightIcon } from '../components/icons'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { searchEvents, type EventItem } from '../api/event'
 import { useCreateTeamStore } from '../context/CreateTeam' 
 
@@ -8,6 +8,8 @@ const steps = ['팀 기본 정보', '모집 포지션', '미리보기']
 
 export default function CreateTeamInfo() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const preselectedEvent = (location.state as { event?: EventItem } | null)?.event ?? null
   const {
     title,
     promotionText,
@@ -20,7 +22,13 @@ export default function CreateTeamInfo() {
   const [searchResults, setSearchResults] = useState<EventItem[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [showResults, setShowResults] = useState(false)
-  const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null)
+  const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(preselectedEvent)
+
+  useEffect(() => {
+    if (!preselectedEvent) return
+    setSelectedEvent(preselectedEvent)
+    setField('eventId', preselectedEvent.id)
+  }, [preselectedEvent, setField])
 
   const dateError =
     recruitmentStartDate && recruitmentEndDate && recruitmentStartDate > recruitmentEndDate

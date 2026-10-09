@@ -247,14 +247,13 @@ export default function ContestDetailPage() {
               </div>
             )}
 
-            <a
-              href={event.detailUrl}
-              target="_blank"
-              rel="noreferrer noopener"
+            <button
+              type="button"
+              onClick={() => navigate('/teams/new', { state: { event } })}
               className="mt-1 rounded-xl bg-[#4D4DF1] py-3 text-center text-sm font-bold text-white transition-opacity hover:opacity-90"
             >
-              지원하러 가기
-            </a>
+              팀 만들러 가기
+            </button>
           </div>
         </aside>
       </div>
@@ -266,14 +265,13 @@ export default function ContestDetailPage() {
             <p className="truncate text-[11px] font-medium text-[#8C8DAE]">{formatDate(event.endDate)} 마감</p>
             <p className="truncate text-[13px] font-bold text-[#1B1B33]">{event.organizer}</p>
           </div>
-          <a
-            href={event.detailUrl}
-            target="_blank"
-            rel="noreferrer noopener"
+          <button
+            type="button"
+            onClick={() => navigate('/teams/new', { state: { event } })}
             className="shrink-0 rounded-xl bg-[#4D4DF1] px-5 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90"
           >
-            지원하러 가기
-          </a>
+            팀 만들기
+          </button>
         </div>
       </div>
     </div>

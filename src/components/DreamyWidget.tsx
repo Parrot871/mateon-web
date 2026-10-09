@@ -56,7 +56,7 @@ export default function DreamyWidget() {
   return (
     <>
       {isOpen && (
-        <div className="fixed bottom-44 left-6 z-50 flex h-[480px] w-80 flex-col overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-black/5">
+        <div className="fixed bottom-44 right-6 z-50 flex h-[480px] w-80 flex-col overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-black/5">
           <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
             <div className="flex items-center gap-2">
               <img src="/landing_img/dreamy.svg" alt="" className="h-7 w-7" />
@@ -123,20 +123,16 @@ export default function DreamyWidget() {
         </div>
       )}
 
-      <div className="fixed bottom-14 left-0 z-50 hidden w-64 justify-center md:flex">
+      <div className="fixed bottom-14 right-0 z-50 hidden w-64 justify-center md:flex">
         <button
           type="button"
           onClick={() => setIsOpen((v) => !v)}
           aria-label="드림이와 대화하기"
-          className="flex h-28 w-28 flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-indigo-600 bg-white shadow-lg transition-transform hover:scale-105"
+          className="flex h-18 w-18 flex-col items-center justify-center gap-1.5 rounded-3xl border-2 border-indigo-500 bg-white shadow-lg transition-transform hover:scale-105"
         >
           <span className="relative">
-            <img src="/landing_img/dreamy.svg" alt="" className="h-14 w-14" />
-            <span className="absolute -right-2 -top-1 rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-              AI
-            </span>
+            <img src="/landing_img/dreamy.svg" alt="" className="h-16 w-16" />
           </span>
-          <span className="text-sm font-bold text-indigo-600">드림이 챗봇</span>
         </button>
       </div>
     </>
