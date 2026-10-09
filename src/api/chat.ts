@@ -3,11 +3,11 @@ import { getAccessToken } from './tokenStorage';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
-// 1. DM 방 조회 및 생성
 export type DmRoom = {
   roomId: number;
 };
 
+// 1. DM 방 조회 및 생성
 export async function createOrGetDmRoom(
   targetUserId: number,
   signal?: AbortSignal
