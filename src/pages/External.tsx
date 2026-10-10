@@ -159,10 +159,35 @@ export default function ContestPage() {
   return (
     <div className="mx-auto max-w-5xl px-6 pb-10 pt-4">
       <EntranceStyles />
-
-      <header className="rise-in mb-8">
-        <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-[#1B1B33]">대외활동</h1>
-        <p className="mt-1.5 text-sm text-[#6F7095]">전국의 다양한 대외활동을 한눈에 확인하고 도전해보세요!</p>
+      <header className="rise-in mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-[#1B1B33]">대외활동</h1>
+          <p className="mt-1.5 flex items-center gap-1.5 text-sm text-[#6F7095]">
+            전국의 다양한 대외활동을 한눈에 확인하고 도전해보세요!
+          </p>
+        </div>
+        <button
+          type="button"
+          className="group inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-[#1B1B33] transition-colors duration-300 hover:text-[#4D4DF1] focus-visible:text-[#4D4DF1] focus-visible:outline-none"
+        >
+          <span className="relative pb-1">
+            대외활동 등록하기
+            <span className="absolute bottom-0 left-0 h-px w-full bg-[#ECECF5]" />
+            <span className="absolute bottom-0 left-0 h-px w-full origin-left scale-x-0 bg-[#4D4DF1] transition-transform duration-300 ease-out group-hover:scale-x-100 group-focus-visible:scale-x-100 motion-reduce:transition-none" />
+          </span>
+          <svg
+            aria-hidden="true"
+            className="h-5 w-5 transition-transform duration-300 ease-out group-hover:translate-x-1.5 group-focus-visible:translate-x-1.5 motion-reduce:transition-none"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.25"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M4 12h15M13 6l6 6-6 6" />
+          </svg>
+        </button>
       </header>
 
       {/* Filter bar */}
