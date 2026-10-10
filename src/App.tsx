@@ -12,6 +12,7 @@ import TeamReview from './pages/TeamReview'
 import PasswordChange from './pages/PasswordChange'
 import EditProfile from './pages/EditProfile'
 import Contest from './pages/Contest'
+import CreateContest from './pages/CreateContest'
 import ContestDetail from './pages/ContestDetail'
 import External from './pages/External'
 import PageShell from './components/PageShell'
@@ -60,8 +61,10 @@ function App() {
         }
       >
         <Route path="/contest" element={<Contest />} />
+        <Route path="/contest/new" element={<CreateContest category="CONTEST" />} />
         <Route path="/contest/:id" element={<ContestDetail />} />
         <Route path="/external" element={<External />} />
+        <Route path="/external/new" element={<CreateContest category="EXTERNAL" />} />
         <Route path="/external/:id" element={<ContestDetail />} />
 
         {/* 2. 팀 생성 관련 페이지들만 CreateTeamProvider로 한 번 더 감싸줍니다 */}

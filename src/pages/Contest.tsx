@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import EventCard from '../components/EventCard'
 import Pagination from '../components/Pagination'
 import { ChevronDownIcon } from '../components/icons'
@@ -170,8 +170,8 @@ export default function ContestPage() {
             전국의 다양한 공모전을 한눈에 확인하고 도전해보세요!
           </p>
         </div>
-        <button
-          type="button"
+        <Link
+          to="/contest/new"
           className="group inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-[#1B1B33] transition-colors duration-300 hover:text-[#4D4DF1] focus-visible:text-[#4D4DF1] focus-visible:outline-none"
         >
           <span className="relative pb-1">
@@ -191,7 +191,7 @@ export default function ContestPage() {
           >
             <path d="M4 12h15M13 6l6 6-6 6" />
           </svg>
-        </button>
+        </Link>
       </header>
 
       {/* Filter bar */}
