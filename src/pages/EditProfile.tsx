@@ -5,6 +5,7 @@ import Topbar from '../components/Topbar'
 import Footer from '../components/Footer'
 import { useAuth } from '../context/AuthContext'
 import { deleteProfileImage, updateProfile, uploadProfileImage } from '../api/user'
+import { summarizePortfolio } from '../api/portfolio'
 import { getUnivByEmail } from '../utils/univ'
 import ProfileIdentityCard from '../components/ProfileIdentityCard'
 
@@ -28,8 +29,10 @@ export default function EditProfile() {
   const [job1, setJob1] = useState('')
   const [job2, setJob2] = useState('')
   const [job3, setJob3] = useState('')
+  const [portfolio, setPortfolio] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSummarizingPortfolio, setIsSummarizingPortfolio] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
 
@@ -41,6 +44,7 @@ export default function EditProfile() {
     setJob1(profile.interestJobPrimary ?? '')
     setJob2(profile.interestJobSecondary ?? '')
     setJob3(profile.interestJobTertiary ?? '')
+    setPortfolio(profile.portfolio ?? '')
   }, [profile])
 
   const univ = profile?.schoolVerified ? getUnivByEmail(profile.schoolEmail ?? profile.email) : null
@@ -48,7 +52,7 @@ export default function EditProfile() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!profile || !isComplete || isSubmitting) return
+    if (!profile || !isComplete || isSubmitting || isSummarizingPortfolio) return
 
     setError(null)
     setIsSubmitting(true)
@@ -63,7 +67,7 @@ export default function EditProfile() {
         schoolEmail: profile.schoolEmail,
         schoolVerified: profile.schoolVerified,
         profileImageUrl: profile.profileImageUrl,
-        portfolio: profile.portfolio,
+        portfolio,
       })
       await refresh()
       window.alert('회원정보가 수정되었습니다.')
@@ -72,6 +76,33 @@ export default function EditProfile() {
       setError(err instanceof Error ? err.message : '잠시 후 다시 시도해주세요.')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handlePortfolioChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || isSummarizingPortfolio) return
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setError('PDF 파일만 업로드할 수 있어요.')
+      return
+    }
+
+    if (file.size > 20 * 1024 * 1024) {
+      setError('포트폴리오는 20MB 이하 파일만 업로드할 수 있어요.')
+      return
+    }
+
+    setError(null)
+    setIsSummarizingPortfolio(true)
+    try {
+      const result = await summarizePortfolio(file)
+      setPortfolio(result.summary)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '포트폴리오 분석에 실패했어요. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setIsSummarizingPortfolio(false)
     }
   }
 
@@ -208,24 +239,35 @@ export default function EditProfile() {
 
             <div>
               <p className="mb-2 text-sm font-semibold text-brand-900">포트폴리오</p>
-              <button
-                type="button"
-                onClick={() => window.alert('웹에서는 아직 지원하지 않아요. 앱에서 업로드해주세요.')}
-                className="flex h-32 w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[#2554F0]/50 bg-brand-50/40 text-center"
+              <label
+                className={`relative flex h-32 w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[#2554F0]/50 bg-brand-50/40 text-center ${
+                  isSummarizingPortfolio ? 'cursor-wait opacity-60' : 'cursor-pointer'
+                }`}
               >
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={handlePortfolioChange}
+                  disabled={isSummarizingPortfolio}
+                  className="sr-only"
+                />
                 <span className="text-2xl">📄</span>
                 <span className="text-sm font-semibold text-brand-700">
-                  {profile.portfolio ? '포트폴리오 등록됨' : 'PDF 포트폴리오를 선택해주세요'}
+                  {isSummarizingPortfolio
+                    ? '포트폴리오 분석 중...'
+                    : portfolio
+                      ? '포트폴리오 등록하기'
+                      : 'PDF 포트폴리오를 선택해주세요'}
                 </span>
                 <span className="text-xs text-brand-400">최대 20MB</span>
-              </button>
+              </label>
             </div>
 
             {error && <p className="text-sm font-medium text-rose-500">{error}</p>}
 
             <button
               type="submit"
-              disabled={!isComplete || isSubmitting}
+              disabled={!isComplete || isSubmitting || isSummarizingPortfolio}
               className="h-14 rounded-xl bg-[#2554F0] text-lg font-semibold text-white transition-opacity disabled:opacity-40"
             >
               {isSubmitting ? '저장 중...' : '저장하기'}

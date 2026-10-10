@@ -200,6 +200,10 @@ export async function searchAllEvents(
 export async function createEvent(payload: EventRegisterPayload): Promise<EventItem> {
   const accessToken = await getAccessToken();
 
+  if (!accessToken) {
+    throw new Error('로그인이 필요합니다.');
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/events`, {
     method: 'POST',
     headers: {
@@ -318,6 +322,10 @@ export async function extractEventImage(
   signal?: AbortSignal
 ): Promise<EventExtractionDraft> {
   const accessToken = await getAccessToken();
+
+  if (!accessToken) {
+    throw new Error('로그인이 필요합니다.');
+  }
 
   const formData = new FormData();
   formData.append('image', image, image.name);
